@@ -1,0 +1,67 @@
+name: Release VSIX
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write   # needed to create GitHub Releases
+
+jobs:
+  build-and-release:
+    name: Build & Publish VSIX
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ───────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # full history so we can read tags
+
+      # ── 2. Setup Node ─────────────────────────────────────────────────────
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ── 3. Install dependencies ───────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 4. Compile TypeScript ─────────────────────────────────────────────
+      - name: Compile TypeScript
+        run: npm run compile
+
+      # ── 5. Package VSIX ───────────────────────────────────────────────────
+      - name: Package VSIX
+        run: npx @vscode/vsce package --allow-missing-repository --no-git-tag-version
+        # Outputs: vs-android-runner-<version>.vsix
+
+      # ── 6. Read version from package.json ────────────────────────────────
+      - name: Get version
+        id: pkg
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      # ── 7. Create GitHub Release ──────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.pkg.outputs.version }}
+          name: VS Android Runner v${{ steps.pkg.outputs.version }}
+          body: |
+            ## 🚀 VS Android Runner v${{ steps.pkg.outputs.version }}
+
+            Manage and run Android Emulators directly within VS Code.
+
+            ### Install
+            1. Download `vs-android-runner-${{ steps.pkg.outputs.version }}.vsix` below
+            2. In VS Code: **Extensions** → `···` → **Install from VSIX…**
+
+            ### Changes
+            _See commit history for details._
+          files: vs-android-runner-${{ steps.pkg.outputs.version }}.vsix
+          generate_release_notes: true
+          make_latest: true

@@ -4,6 +4,14 @@
   "description": "Manage and run Android Emulators directly within VS Code without needing to open Android Studio.",
   "version": "0.1.0",
   "publisher": "vscode-adb-extensions",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Araryarch/vscode-adb-extensions.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Araryarch/vscode-adb-extensions/issues"
+  },
+  "homepage": "https://github.com/Araryarch/vscode-adb-extensions#readme",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -16,9 +24,6 @@
     "avd",
     "adb",
     "android studio"
-  ],
-  "activationEvents": [
-    "onView:vsAndroidRunner.avdList"
   ],
   "main": "./out/extension.js",
   "icon": "resources/icon.png",
