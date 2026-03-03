@@ -20,10 +20,12 @@
   ],
   "keywords": [
     "android",
+    "flutter",
     "emulator",
     "avd",
     "adb",
-    "android studio"
+    "android studio",
+    "flutter project"
   ],
   "main": "./out/extension.js",
   "icon": "resources/icon.png",
@@ -68,7 +70,23 @@
         "command": "droidStudio.previewXml",
         "title": "Droid Studio: Preview XML Layout",
         "icon": "$(open-preview)"
-      }
+      },
+      { "command": "droidStudio.newProject", "title": "Droid Studio: New Android Project", "icon": "$(add)" },
+      { "command": "droidStudio.runApp", "title": "Droid Studio: Run App on Emulator", "icon": "$(play)" },
+      { "command": "droidStudio.flutterNew", "title": "Flutter: New Project", "icon": "$(add)" },
+      { "command": "droidStudio.flutterRefresh", "title": "Flutter: Refresh Devices", "icon": "$(refresh)" },
+      { "command": "droidStudio.flutterRun", "title": "Flutter: Run on Device", "icon": "$(play)" },
+      { "command": "droidStudio.flutterRunAll", "title": "Flutter: Run", "icon": "$(play-circle)" },
+      { "command": "droidStudio.flutterPubGet", "title": "Flutter: pub get" },
+      { "command": "droidStudio.flutterPubUpgrade", "title": "Flutter: pub upgrade" },
+      { "command": "droidStudio.flutterClean", "title": "Flutter: clean" },
+      { "command": "droidStudio.flutterDoctor", "title": "Flutter: doctor" },
+      { "command": "droidStudio.flutterAnalyze", "title": "Flutter: analyze" },
+      { "command": "droidStudio.flutterTest", "title": "Flutter: test" },
+      { "command": "droidStudio.flutterBuildApk", "title": "Flutter: Build APK (debug)" },
+      { "command": "droidStudio.flutterBuildApkRelease", "title": "Flutter: Build APK (release)" },
+      { "command": "droidStudio.flutterBuildAab", "title": "Flutter: Build AAB" },
+      { "command": "droidStudio.flutterBuildWeb", "title": "Flutter: Build Web" }
     ],
     "viewsContainers": {
       "activitybar": [
@@ -85,6 +103,16 @@
           "id": "vsAndroidRunner.avdList",
           "name": "Android Emulators",
           "contextualTitle": "Droid Studio"
+        },
+        {
+          "id": "droidStudio.flutterDevices",
+          "name": "Flutter Devices",
+          "contextualTitle": "Droid Studio"
+        },
+        {
+          "id": "droidStudio.flutterActions",
+          "name": "Flutter Actions",
+          "contextualTitle": "Droid Studio"
         }
       ]
     },
@@ -99,6 +127,21 @@
           "command": "vsAndroidRunner.createAvd",
           "when": "view == vsAndroidRunner.avdList",
           "group": "navigation@2"
+        },
+        {
+          "command": "droidStudio.flutterRefresh",
+          "when": "view == droidStudio.flutterDevices",
+          "group": "navigation@1"
+        },
+        {
+          "command": "droidStudio.flutterNew",
+          "when": "view == droidStudio.flutterDevices",
+          "group": "navigation@2"
+        },
+        {
+          "command": "droidStudio.runApp",
+          "when": "view == vsAndroidRunner.avdList",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
@@ -131,6 +174,11 @@
           "command": "vsAndroidRunner.stopAvd",
           "when": "view == vsAndroidRunner.avdList && viewItem == avd-running",
           "group": "2_debug@2"
+        },
+        {
+          "command": "droidStudio.flutterRun",
+          "when": "view == droidStudio.flutterDevices && viewItem == flutter-device",
+          "group": "inline@1"
         }
       ],
       "editor/title": [

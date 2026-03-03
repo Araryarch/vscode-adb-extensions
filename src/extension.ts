@@ -1,4 +1,4 @@
-import * as vscode from 'vscode';
+﻿import * as vscode from 'vscode';
 import * as path from 'path';
 import {
   AvdInfo,
@@ -10,10 +10,20 @@ import {
   stopAvd,
 } from './avdManager';
 import { AndroidXmlPreviewPanel } from './xmlPreview';
+import { runNewProjectWizard } from './projectWizard';
+import {
+  detectFlutter,
+  runFlutterInTerminal,
+  FlutterDeviceProvider,
+  FlutterActionProvider,
+  FlutterDeviceItem,
+} from './flutterManager';
+import { runFlutterProjectWizard } from './flutterWizard';
+import { runAndroidApp } from './gradleRunner';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Tree Item
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class AvdTreeItem extends vscode.TreeItem {
   constructor(
@@ -22,8 +32,8 @@ class AvdTreeItem extends vscode.TreeItem {
   ) {
     super(avd.name, vscode.TreeItemCollapsibleState.None);
 
-    this.tooltip = `${avd.name} — ${avd.status}`;
-    this.description = avd.status === 'running' ? '● Running' : '○ Stopped';
+    this.tooltip = `${avd.name} â€” ${avd.status}`;
+    this.description = avd.status === 'running' ? 'â— Running' : 'â—‹ Stopped';
 
     // contextValue drives menu "when" clauses
     this.contextValue = avd.status === 'running' ? 'avd-running' : 'avd-stopped';
@@ -40,7 +50,7 @@ class AvdTreeItem extends vscode.TreeItem {
             new vscode.ThemeColor('disabledForeground')
           );
 
-    // Single-click → run emulator (only when stopped)
+    // Single-click â†’ run emulator (only when stopped)
     if (avd.status === 'stopped') {
       this.command = {
         command: 'vsAndroidRunner.runAvd',
@@ -51,9 +61,9 @@ class AvdTreeItem extends vscode.TreeItem {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // TreeView Data Provider
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class AvdTreeDataProvider
   implements vscode.TreeDataProvider<AvdTreeItem>
@@ -90,7 +100,7 @@ class AvdTreeDataProvider
         this.avds = await listAvds(paths);
       } catch (err) {
         vscode.window.showErrorMessage(
-          `VS Android Runner: Failed to list AVDs — ${String(err)}`
+          `VS Android Runner: Failed to list AVDs â€” ${String(err)}`
         );
         this.avds = [];
       } finally {
@@ -108,15 +118,20 @@ class AvdTreeDataProvider
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Extension Activation
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 let autoRefreshTimer: ReturnType<typeof setInterval> | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
-  // ── Resolve SDK at startup ──────────────────────────────────────────────
+  // â”€â”€ Resolve SDK at startup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   let sdkPaths: SdkPaths | undefined;
+
+  // â”€â”€ Flutter Detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  let flutterExe: string | undefined = detectFlutter();
+  const flutterDeviceProvider = new FlutterDeviceProvider(() => flutterExe);
+  const flutterActionProvider = new FlutterActionProvider();
 
   function tryResolveSdk(showError = true): void {
     const config = vscode.workspace.getConfiguration('vsAndroidRunner');
@@ -150,7 +165,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }
   }
 
-  tryResolveSdk(false); // silent on first try — user may not have Android installed
+  tryResolveSdk(false); // silent on first try â€” user may not have Android installed
 
   // Re-resolve whenever the setting changes
   context.subscriptions.push(
@@ -163,7 +178,7 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  // ── Tree View ───────────────────────────────────────────────────────────
+  // â”€â”€ Tree View â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const provider = new AvdTreeDataProvider(
     context,
     () => sdkPaths
@@ -179,17 +194,26 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(treeView);
 
-  // ── Auto-refresh ────────────────────────────────────────────────────────
+  // â”€â”€ Flutter TreeViews â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  const flutterDeviceView = vscode.window.createTreeView('droidStudio.flutterDevices', {
+    treeDataProvider: flutterDeviceProvider,
+    showCollapseAll: false,
+  });
+  const flutterActionView = vscode.window.createTreeView('droidStudio.flutterActions', {
+    treeDataProvider: flutterActionProvider,
+    showCollapseAll: false,
+  });
+  context.subscriptions.push(flutterDeviceView, flutterActionView);
+
+  // â”€â”€ Auto-refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   function restartAutoRefresh(): void {
-    if (autoRefreshTimer) {
-      clearInterval(autoRefreshTimer);
-      autoRefreshTimer = undefined;
-    }
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = undefined; }
     const config = vscode.workspace.getConfiguration('vsAndroidRunner');
     const intervalSec = config.get<number>('autoRefreshInterval', 10);
     if (intervalSec > 0) {
       autoRefreshTimer = setInterval(() => {
         provider.refresh();
+        flutterDeviceProvider.refresh();
       }, intervalSec * 1000);
     }
   }
@@ -204,20 +228,32 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   });
 
-  // ── Command: Refresh ────────────────────────────────────────────────────
+  // â”€â”€ Command: New Android Project â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
-    vscode.commands.registerCommand('vsAndroidRunner.refresh', () => {
-      provider.refresh();
+    vscode.commands.registerCommand('droidStudio.newProject', () => {
+      runNewProjectWizard();
     })
   );
 
-  // ── Command: Create AVD ─────────────────────────────────────────────────
+  // â”€â”€ Command: Run App (Gradle â†’ Emulator â†’ Install â†’ Launch) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.runApp', async () => {
+      if (!sdkPaths) {
+        // Try once more before giving up
+        tryResolveSdk(true);
+        if (!sdkPaths) { return; }
+      }
+      await runAndroidApp(sdkPaths);
+    })
+  );
+
+  // â”€â”€ Command: Create AVD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
     vscode.commands.registerCommand('vsAndroidRunner.createAvd', () => {
       const terminal = vscode.window.createTerminal({
         name: 'Create AVD',
         message:
-          '⚡ VS Android Runner — use the avdmanager below to create a new AVD.\n' +
+          'âš¡ VS Android Runner â€” use the avdmanager below to create a new AVD.\n' +
           '   Example: avdmanager create avd -n MyDevice -k "system-images;android-34;google_apis;x86_64"',
       });
       terminal.show();
@@ -227,7 +263,7 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  // ── Command: Run AVD ────────────────────────────────────────────────────
+  // â”€â”€ Command: Run AVD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'vsAndroidRunner.runAvd',
@@ -239,7 +275,7 @@ export function activate(context: vscode.ExtensionContext): void {
         try {
           runAvd(sdkPaths, avdName);
           vscode.window.showInformationMessage(
-            `🚀 Launching emulator: ${avdName}`
+            `ðŸš€ Launching emulator: ${avdName}`
           );
           // Refresh after a small delay so status updates
           setTimeout(() => provider.refresh(), 5000);
@@ -250,7 +286,7 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  // ── Command: Cold Boot ──────────────────────────────────────────────────
+  // â”€â”€ Command: Cold Boot â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'vsAndroidRunner.coldBootAvd',
@@ -262,7 +298,7 @@ export function activate(context: vscode.ExtensionContext): void {
         try {
           runAvd(sdkPaths, avdName, true /* cold boot */);
           vscode.window.showInformationMessage(
-            `❄️ Cold-booting emulator: ${avdName}`
+            `â„ï¸ Cold-booting emulator: ${avdName}`
           );
           setTimeout(() => provider.refresh(), 5000);
         } catch (err) {
@@ -274,7 +310,7 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  // ── Command: Stop AVD ───────────────────────────────────────────────────
+  // â”€â”€ Command: Stop AVD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'vsAndroidRunner.stopAvd',
@@ -293,7 +329,7 @@ export function activate(context: vscode.ExtensionContext): void {
         try {
           stopAvd(sdkPaths, avd.serial);
           vscode.window.showInformationMessage(
-            `🛑 Stopping emulator: ${avd.name}`
+            `ðŸ›‘ Stopping emulator: ${avd.name}`
           );
           setTimeout(() => provider.refresh(), 3000);
         } catch (err) {
@@ -305,7 +341,7 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  // ── Command: Show Logcat ─────────────────────────────────────────────────
+  // â”€â”€ Command: Show Logcat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
     vscode.commands.registerCommand(
       'vsAndroidRunner.showLogcat',
@@ -323,8 +359,8 @@ export function activate(context: vscode.ExtensionContext): void {
         }
         const { cmd, args } = buildLogcatArgs(sdkPaths, avd.serial);
         const terminal = vscode.window.createTerminal({
-          name: `Logcat — ${avd.name}`,
-          message: `📋 Logcat stream for ${avd.name} (${avd.serial})`,
+          name: `Logcat â€” ${avd.name}`,
+          message: `ðŸ“‹ Logcat stream for ${avd.name} (${avd.serial})`,
         });
         terminal.show();
         terminal.sendText(`"${cmd}" ${args.map(a => `"${a}"`).join(' ')}`);
@@ -332,7 +368,7 @@ export function activate(context: vscode.ExtensionContext): void {
     )
   );
 
-  // ── Command: Set SDK Path ────────────────────────────────────────────────
+  // â”€â”€ Command: Set SDK Path â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
     vscode.commands.registerCommand('vsAndroidRunner.setSdkPath', () => {
       vscode.commands.executeCommand(
@@ -342,7 +378,7 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  // ── Command: XML Layout Preview ──────────────────────────────────────────
+  // â”€â”€ Command: XML Layout Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
     vscode.commands.registerCommand('droidStudio.previewXml', () => {
       const editor = vscode.window.activeTextEditor;
@@ -350,6 +386,133 @@ export function activate(context: vscode.ExtensionContext): void {
         ? editor.document.uri
         : undefined;
       AndroidXmlPreviewPanel.createOrShow(context.extensionUri, uri);
+    })
+  );
+
+  // â”€â”€ Flutter: helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  function requireFlutter(): string | undefined {
+    if (!flutterExe) {
+      flutterExe = detectFlutter(); // re-try in case PATH changed
+    }
+    if (!flutterExe) {
+      vscode.window
+        .showErrorMessage('Flutter SDK not found. Install Flutter and ensure it is on PATH.', 'Get Flutter')
+        .then(c => { if (c) { vscode.env.openExternal(vscode.Uri.parse('https://flutter.dev/docs/get-started/install')); } });
+      return undefined;
+    }
+    return flutterExe;
+  }
+
+  // â”€â”€ Flutter: run on selected device â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterRun', async (item?: FlutterDeviceItem) => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      const deviceId = item?.device.id;
+      const args = deviceId ? ['run', '-d', deviceId] : ['run'];
+      runFlutterInTerminal(fl, args, `Flutter Run${deviceId ? ` â€” ${item!.device.name}` : ''}`);
+    })
+  );
+
+  // â”€â”€ Flutter: run all â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterRunAll', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['run'], 'Flutter Run');
+    })
+  );
+
+  // â”€â”€ Flutter: pub get â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterPubGet', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['pub', 'get'], 'flutter pub get');
+    })
+  );
+
+  // â”€â”€ Flutter: pub upgrade â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterPubUpgrade', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['pub', 'upgrade'], 'flutter pub upgrade');
+    })
+  );
+
+  // â”€â”€ Flutter: clean â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterClean', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['clean'], 'flutter clean');
+    })
+  );
+
+  // â”€â”€ Flutter: doctor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterDoctor', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['doctor', '-v'], 'flutter doctor');
+    })
+  );
+
+  // â”€â”€ Flutter: analyze â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterAnalyze', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['analyze'], 'flutter analyze');
+    })
+  );
+
+  // â”€â”€ Flutter: test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterTest', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['test'], 'flutter test');
+    })
+  );
+
+  // â”€â”€ Flutter: build APK (debug) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterBuildApk', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['build', 'apk', '--debug'], 'Flutter Build APK');
+    })
+  );
+
+  // â”€â”€ Flutter: build APK (release) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterBuildApkRelease', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['build', 'apk', '--release'], 'Flutter Build APK (Release)');
+    })
+  );
+
+  // â”€â”€ Flutter: build AAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterBuildAab', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['build', 'appbundle', '--release'], 'Flutter Build AAB');
+    })
+  );
+
+  // â”€â”€ Flutter: build Web â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterBuildWeb', () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      runFlutterInTerminal(fl, ['build', 'web'], 'Flutter Build Web');
+    })
+  );
+
+  // â”€â”€ Flutter: new project wizard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterNew', async () => {
+      const fl = requireFlutter(); if (!fl) { return; }
+      await runFlutterProjectWizard(fl);
+    })
+  );
+
+  // â”€â”€ Flutter: refresh devices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.flutterRefresh', () => {
+      flutterDeviceProvider.refresh();
     })
   );
 
@@ -367,7 +530,7 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
-  // ── Show SDK status in status bar ────────────────────────────────────────
+  // â”€â”€ Show SDK status in status bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
     100
@@ -391,9 +554,9 @@ export function deactivate(): void {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function resolveAvdName(
   item: AvdTreeItem | undefined,
@@ -419,7 +582,7 @@ async function resolveAvdName(
     const picked = await vscode.window.showQuickPick(
       avds.map((a) => ({
         label: a.name,
-        description: a.status === 'running' ? '● Running' : '○ Stopped',
+        description: a.status === 'running' ? 'â— Running' : 'â—‹ Stopped',
         avd: a,
       })),
       { placeHolder: 'Select an AVD to launch' }
@@ -453,7 +616,7 @@ function updateStatusBar(
 ): void {
   if (sdkPaths) {
     item.text = '$(device-mobile) Droid Studio';
-    item.tooltip = `Droid Studio — SDK: ${sdkPaths.sdkRoot}\nClick to refresh AVD list`;
+    item.tooltip = `Droid Studio â€” SDK: ${sdkPaths.sdkRoot}\nClick to refresh AVD list`;
     item.backgroundColor = undefined;
   } else {
     item.text = '$(warning) Droid Studio: SDK not found';
