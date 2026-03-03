@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
-import { SdkPaths, listAvds, runAvd } from './avdManager';
+import { SdkPaths, listAvds } from './avdManager';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,10 +111,10 @@ async function runSequence(cfg: RunConfig): Promise<void> {
 
   const script = isWin()
     ? buildWindowsScript(cfg, runningSerial, emulatorExe, adb, serial)
-    : buildUnixScript(cfg, runningSerial, emulatorExe, adb);
+    : buildUnixScript(cfg, runningSerial, emulatorExe, adb, serial);
 
   const term = vscode.window.createTerminal({
-    name: `▶ Run — ${packageName.split('.').pop()}`,
+    name: `Run -- ${packageName.split('.').pop()}`,
     cwd: projectRoot,
     iconPath: new vscode.ThemeIcon('play-circle'),
   });
@@ -132,31 +132,32 @@ function buildWindowsScript(
   const { gradlew, packageName, mainActivity, avdName } = cfg;
   const lines: string[] = [];
 
-  lines.push(`Write-Host "🎯 Droid Studio — Run App" -ForegroundColor Cyan`);
+  lines.push(`Write-Host "Droid Studio -- Run App" -ForegroundColor Cyan`);
   lines.push(`Write-Host "Project: ${cfg.projectRoot}" -ForegroundColor Gray`);
   lines.push('');
 
   if (!runningSerial) {
-    lines.push(`Write-Host "🚀 Starting emulator: ${avdName}..." -ForegroundColor Yellow`);
+    lines.push(`Write-Host "Starting emulator: ${avdName}..." -ForegroundColor Yellow`);
     lines.push(`Start-Process -FilePath "${emulatorExe}" -ArgumentList "-avd","${avdName}" -WindowStyle Normal`);
     lines.push('');
-    lines.push(`Write-Host "⏳ Waiting for emulator to boot..." -ForegroundColor Yellow`);
+    lines.push(`Write-Host "Waiting for emulator to boot..." -ForegroundColor Yellow`);
     lines.push(`& "${adb}" wait-for-device`);
     lines.push(`do { Start-Sleep -Seconds 2; $boot = & "${adb}" shell getprop sys.boot_completed 2>$null } while ($boot.Trim() -ne "1")`);
     lines.push(`Start-Sleep -Seconds 2 # allow system to settle`);
-    lines.push(`Write-Host "✅ Emulator ready!" -ForegroundColor Green`);
+    lines.push(`Write-Host "Emulator ready!" -ForegroundColor Green`);
   } else {
-    lines.push(`Write-Host "✅ Using running emulator: ${runningSerial}" -ForegroundColor Green`);
+    lines.push(`Write-Host "Using running emulator: ${runningSerial}" -ForegroundColor Green`);
   }
 
   lines.push('');
-  lines.push(`Write-Host "🔨 Building with Gradle..." -ForegroundColor Yellow`);
+  lines.push(`Write-Host "Building with Gradle..." -ForegroundColor Yellow`);
+  lines.push(`$env:ANDROID_SERIAL = "${_serial}"`);
   lines.push(`& "${gradlew}" installDebug`);
-  lines.push(`if ($LASTEXITCODE -ne 0) { Write-Host "❌ Build failed!" -ForegroundColor Red; exit 1 }`);
+  lines.push(`if ($LASTEXITCODE -ne 0) { Write-Host "Build failed!" -ForegroundColor Red; exit 1 }`);
   lines.push('');
-  lines.push(`Write-Host "🚀 Launching ${packageName}..." -ForegroundColor Green`);
-  lines.push(`& "${adb}" shell am start -n "${mainActivity}"`);
-  lines.push(`Write-Host "✅ App launched!" -ForegroundColor Green`);
+  lines.push(`Write-Host "Launching ${packageName}..." -ForegroundColor Green`);
+  lines.push(`& "${adb}" -s "${_serial}" shell am start -n "${mainActivity}"`);
+  lines.push(`Write-Host "App launched!" -ForegroundColor Green`);
 
   return lines.join('\n');
 }
@@ -165,36 +166,37 @@ function buildUnixScript(
   cfg: RunConfig,
   runningSerial: string | null,
   emulatorExe: string,
-  adb: string
+  adb: string,
+  _serial: string
 ): string {
   const { gradlew, packageName, mainActivity, avdName } = cfg;
   const lines: string[] = [];
 
-  lines.push(`echo "\\033[36m🎯 Droid Studio — Run App\\033[0m"`);
+  lines.push(`echo "Droid Studio -- Run App"`);
   lines.push('');
 
   if (!runningSerial) {
-    lines.push(`echo "\\033[33m🚀 Starting emulator: ${avdName}...\\033[0m"`);
+    lines.push(`echo "Starting emulator: ${avdName}..."`);
     lines.push(`"${emulatorExe}" -avd "${avdName}" &`);
     lines.push(`EMU_PID=$!`);
     lines.push('');
-    lines.push(`echo "\\033[33m⏳ Waiting for emulator to boot...\\033[0m"`);
+    lines.push(`echo "Waiting for emulator to boot..."`);
     lines.push(`"${adb}" wait-for-device`);
     lines.push(`until [ "$("${adb}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\\r')" = "1" ]; do sleep 2; done`);
     lines.push(`sleep 2 # allow system to settle`);
-    lines.push(`echo "\\033[32m✅ Emulator ready!\\033[0m"`);
+    lines.push(`echo "Emulator ready."`);
   } else {
-    lines.push(`echo "\\033[32m✅ Using running emulator: ${runningSerial}\\033[0m"`);
+    lines.push(`echo "Using running emulator: ${runningSerial}"`);
   }
 
   lines.push('');
-  lines.push(`echo "\\033[33m🔨 Building with Gradle...\\033[0m"`);
+  lines.push(`echo "Building with Gradle..."`);
   lines.push(`chmod +x "${gradlew}"`);
-  lines.push(`"${gradlew}" installDebug || { echo "\\033[31m❌ Build failed!\\033[0m"; exit 1; }`);
+  lines.push(`ANDROID_SERIAL="${_serial}" "${gradlew}" installDebug || { echo "Build failed."; exit 1; }`);
   lines.push('');
-  lines.push(`echo "\\033[32m🚀 Launching ${packageName}...\\033[0m"`);
-  lines.push(`"${adb}" shell am start -n "${mainActivity}"`);
-  lines.push(`echo "\\033[32m✅ App launched!\\033[0m"`);
+  lines.push(`echo "Launching ${packageName}..."`);
+  lines.push(`"${adb}" -s "${_serial}" shell am start -n "${mainActivity}"`);
+  lines.push(`echo "App launched."`);
 
   return lines.join('\n');
 }

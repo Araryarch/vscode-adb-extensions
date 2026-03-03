@@ -127,7 +127,7 @@ function generateProject(cfg: ProjectConfig): void {
   // ── Root files ──────────────────────────────────────────────────────────
   wr(path.join(dir, '.gitignore'), ROOT_GITIGNORE);
   wr(path.join(dir, 'settings.gradle.kts'), settingsGradle(name));
-  wr(path.join(dir, 'build.gradle.kts'), ROOT_BUILD_GRADLE);
+  wr(path.join(dir, 'build.gradle.kts'), rootBuildGradle(lang));
   wr(path.join(dir, 'gradle.properties'), GRADLE_PROPERTIES);
   wr(path.join(dir, 'local.properties'), LOCAL_PROPERTIES);
 
@@ -401,12 +401,14 @@ public class ExampleInstrumentedTest {
 
 const ROOT_GITIGNORE = `*.iml\n.gradle\n/local.properties\n/.idea\n/build\n/captures\n.externalNativeBuild\n.cxx\n*.keystore\n`;
 
-const ROOT_BUILD_GRADLE = `// Top-level build file
+function rootBuildGradle(lang: 'kotlin' | 'java'): string {
+  const kotlinAlias = lang === 'kotlin' ? '\n    alias(libs.plugins.kotlin.android) apply false' : '';
+  return `// Top-level build file
 plugins {
-    alias(libs.plugins.android.application) apply false
-    alias(libs.plugins.kotlin.android) apply false
+    alias(libs.plugins.android.application) apply false${kotlinAlias}
 }
 `;
+}
 
 const GRADLE_PROPERTIES = `org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
 android.useAndroidX=true
