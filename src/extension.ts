@@ -9,6 +9,7 @@ import {
   runAvd,
   stopAvd,
 } from './avdManager';
+import { AndroidXmlPreviewPanel } from './xmlPreview';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tree Item
@@ -341,6 +342,31 @@ export function activate(context: vscode.ExtensionContext): void {
     })
   );
 
+  // ── Command: XML Layout Preview ──────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('droidStudio.previewXml', () => {
+      const editor = vscode.window.activeTextEditor;
+      const uri = editor?.document.languageId === 'xml'
+        ? editor.document.uri
+        : undefined;
+      AndroidXmlPreviewPanel.createOrShow(context.extensionUri, uri);
+    })
+  );
+
+  // Auto-open preview when an XML file is opened in the editor
+  context.subscriptions.push(
+    vscode.window.onDidChangeActiveTextEditor(editor => {
+      if (
+        editor &&
+        editor.document.languageId === 'xml' &&
+        editor.document.uri.fsPath.includes('res') &&
+        editor.document.uri.fsPath.endsWith('.xml')
+      ) {
+        AndroidXmlPreviewPanel.createOrShow(context.extensionUri, editor.document.uri);
+      }
+    })
+  );
+
   // ── Show SDK status in status bar ────────────────────────────────────────
   const statusBarItem = vscode.window.createStatusBarItem(
     vscode.StatusBarAlignment.Left,
@@ -426,12 +452,12 @@ function updateStatusBar(
   sdkPaths: SdkPaths | undefined
 ): void {
   if (sdkPaths) {
-    item.text = '$(device-mobile) Android Runner';
-    item.tooltip = `SDK: ${sdkPaths.sdkRoot}\nClick to refresh AVD list`;
+    item.text = '$(device-mobile) Droid Studio';
+    item.tooltip = `Droid Studio — SDK: ${sdkPaths.sdkRoot}\nClick to refresh AVD list`;
     item.backgroundColor = undefined;
   } else {
-    item.text = '$(warning) Android SDK not found';
-    item.tooltip = 'Click to refresh after configuring SDK path';
+    item.text = '$(warning) Droid Studio: SDK not found';
+    item.tooltip = 'Click to configure Android SDK path';
     item.backgroundColor = new vscode.ThemeColor(
       'statusBarItem.warningBackground'
     );

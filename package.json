@@ -1,7 +1,7 @@
 {
-  "name": "vs-android-runner",
-  "displayName": "VS Android Runner",
-  "description": "Manage and run Android Emulators directly within VS Code without needing to open Android Studio.",
+  "name": "droid-studio",
+  "displayName": "Droid Studio",
+  "description": "A lightweight Android development environment for VS Code — run emulators, preview XML layouts, and build Android apps without Android Studio.",
   "version": "0.1.0",
   "publisher": "vscode-adb-extensions",
   "repository": {
@@ -63,13 +63,18 @@
         "command": "vsAndroidRunner.setSdkPath",
         "title": "Set Android SDK Path",
         "icon": "$(settings-gear)"
+      },
+      {
+        "command": "droidStudio.previewXml",
+        "title": "Droid Studio: Preview XML Layout",
+        "icon": "$(open-preview)"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
           "id": "vsAndroidRunner",
-          "title": "Android Runner",
+          "title": "Droid Studio",
           "icon": "resources/android-logo.svg"
         }
       ]
@@ -78,8 +83,8 @@
       "vsAndroidRunner": [
         {
           "id": "vsAndroidRunner.avdList",
-          "name": "Android Virtual Devices",
-          "contextualTitle": "Android Runner"
+          "name": "Android Emulators",
+          "contextualTitle": "Droid Studio"
         }
       ]
     },
@@ -127,10 +132,17 @@
           "when": "view == vsAndroidRunner.avdList && viewItem == avd-running",
           "group": "2_debug@2"
         }
+      ],
+      "editor/title": [
+        {
+          "command": "droidStudio.previewXml",
+          "when": "resourceLangId == xml",
+          "group": "navigation"
+        }
       ]
     },
     "configuration": {
-      "title": "VS Android Runner",
+      "title": "Droid Studio",
       "properties": {
         "vsAndroidRunner.sdkPath": {
           "type": "string",

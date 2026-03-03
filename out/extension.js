@@ -37,6 +37,7 @@ exports.activate = activate;
 exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const avdManager_1 = require("./avdManager");
+const xmlPreview_1 = require("./xmlPreview");
 // ─────────────────────────────────────────────────────────────────────────────
 // Tree Item
 // ─────────────────────────────────────────────────────────────────────────────
@@ -265,6 +266,23 @@ function activate(context) {
     context.subscriptions.push(vscode.commands.registerCommand('vsAndroidRunner.setSdkPath', () => {
         vscode.commands.executeCommand('workbench.action.openSettings', 'vsAndroidRunner.sdkPath');
     }));
+    // ── Command: XML Layout Preview ──────────────────────────────────────────
+    context.subscriptions.push(vscode.commands.registerCommand('droidStudio.previewXml', () => {
+        const editor = vscode.window.activeTextEditor;
+        const uri = editor?.document.languageId === 'xml'
+            ? editor.document.uri
+            : undefined;
+        xmlPreview_1.AndroidXmlPreviewPanel.createOrShow(context.extensionUri, uri);
+    }));
+    // Auto-open preview when an XML file is opened in the editor
+    context.subscriptions.push(vscode.window.onDidChangeActiveTextEditor(editor => {
+        if (editor &&
+            editor.document.languageId === 'xml' &&
+            editor.document.uri.fsPath.includes('res') &&
+            editor.document.uri.fsPath.endsWith('.xml')) {
+            xmlPreview_1.AndroidXmlPreviewPanel.createOrShow(context.extensionUri, editor.document.uri);
+        }
+    }));
     // ── Show SDK status in status bar ────────────────────────────────────────
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
     statusBarItem.command = 'vsAndroidRunner.refresh';
@@ -323,13 +341,13 @@ function showSdkMissingError() {
 }
 function updateStatusBar(item, sdkPaths) {
     if (sdkPaths) {
-        item.text = '$(device-mobile) Android Runner';
-        item.tooltip = `SDK: ${sdkPaths.sdkRoot}\nClick to refresh AVD list`;
+        item.text = '$(device-mobile) Droid Studio';
+        item.tooltip = `Droid Studio — SDK: ${sdkPaths.sdkRoot}\nClick to refresh AVD list`;
         item.backgroundColor = undefined;
     }
     else {
-        item.text = '$(warning) Android SDK not found';
-        item.tooltip = 'Click to refresh after configuring SDK path';
+        item.text = '$(warning) Droid Studio: SDK not found';
+        item.tooltip = 'Click to configure Android SDK path';
         item.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
     }
 }
