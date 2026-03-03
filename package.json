@@ -2,7 +2,7 @@
   "name": "droid-studio",
   "displayName": "Droid Studio",
   "description": "A lightweight Android development environment for VS Code — run emulators, preview XML layouts, and build Android apps without Android Studio.",
-  "version": "0.1.0",
+  "version": "0.1.5",
   "publisher": "vscode-adb-extensions",
   "repository": {
     "type": "git",
