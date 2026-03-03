@@ -3,7 +3,7 @@
   "displayName": "Droid Studio",
   "description": "A lightweight Android development environment for VS Code — run emulators, preview XML layouts, and build Android apps without Android Studio.",
   "version": "0.1.5",
-  "publisher": "vscode-adb-extensions",
+  "publisher": "Araryarch",
   "repository": {
     "type": "git",
     "url": "https://github.com/Araryarch/vscode-adb-extensions.git"

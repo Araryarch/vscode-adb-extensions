@@ -228,6 +228,15 @@ export function activate(context: vscode.ExtensionContext): void {
     },
   });
 
+  // ── Command: Refresh ────────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vsAndroidRunner.refresh', () => {
+      provider.refresh();
+      // Also refresh the Flutter list
+      flutterDeviceProvider.refresh();
+    })
+  );
+
   // â”€â”€ Command: New Android Project â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   context.subscriptions.push(
     vscode.commands.registerCommand('droidStudio.newProject', () => {
